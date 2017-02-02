@@ -21,12 +21,12 @@ under the License.
 	<modelVersion>4.0.0</modelVersion>
 	
 	<groupId>de.tuberlin.flink.bdapro</groupId>
-	<artifactId>bdapro-winagg-project</artifactId>
+	<artifactId>hybrid-benchmark-project</artifactId>
 	<version>0.1</version>
 	<packaging>jar</packaging>
 
-	<name>Benchmark Windowed Aggregations</name>
-	<url>https://github.com/plehmann93/bdapro_winagg</url>
+	<name>Benchmark Hybrid Streaming systems</name>
+	<url>https://github.com/plehmann93/hybrid-benchmark</url>
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

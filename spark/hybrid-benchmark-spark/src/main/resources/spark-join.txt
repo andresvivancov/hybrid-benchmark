@@ -1,0 +1,64 @@
+join in spark internally of JavaPairDStream
+
+public <W> JavaPairDStream<K, Tuple2<V, W>> join(JavaPairDStream<K, W> other) {
+        ClassTag cm = org.apache.spark.api.java.JavaSparkContext..MODULE$.fakeClassTag();
+        JavaPairDStream$ var10000 = JavaPairDStream$.MODULE$;
+        DStream x$175 = this.dstream();
+        ClassTag x$176 = this.kManifest();
+        ClassTag x$177 = this.vManifest();
+        org.apache.spark.streaming.dstream.DStream..MODULE$.toPairDStreamFunctions$default$4(x$175);
+        Object x$178 = null;
+        return var10000.fromPairDStream(org.apache.spark.streaming.dstream.DStream..MODULE$.toPairDStreamFunctions(x$175, x$176, x$177, (Ordering)null).join(other.dstream(), cm), this.kManifest(), scala.reflect.ClassTag..MODULE$.apply(Tuple2.class));
+    }
+
+
+
+
+join internally of JavaPairRDD:
+
+ public <W> JavaPairRDD<K, Tuple2<V, W>> join(JavaPairRDD<K, W> other) {
+        JavaPairRDD$ var10000 = JavaPairRDD$.MODULE$;
+        RDD x$139 = this.rdd();
+        ClassTag x$140 = this.kClassTag();
+        ClassTag x$141 = this.vClassTag();
+        org.apache.spark.rdd.RDD..MODULE$.rddToPairRDDFunctions$default$4(x$139);
+        Object x$142 = null;
+        return var10000.fromRDD(org.apache.spark.rdd.RDD..MODULE$.rddToPairRDDFunctions(x$139, x$140, x$141, (Ordering)null).join(JavaPairRDD$.MODULE$.toRDD(other)), this.kClassTag(), scala.reflect.ClassTag..MODULE$.apply(Tuple2.class));
+    }
+
+
+
+
+
+join internally of JavaPairRDD with numPartitions:
+
+
+    public <W> JavaPairRDD<K, Tuple2<V, W>> join(JavaPairRDD<K, W> other, int numPartitions) {
+        JavaPairRDD$ var10000 = JavaPairRDD$.MODULE$;
+        RDD x$143 = this.rdd();
+        ClassTag x$144 = this.kClassTag();
+        ClassTag x$145 = this.vClassTag();
+        org.apache.spark.rdd.RDD..MODULE$.rddToPairRDDFunctions$default$4(x$143);
+        Object x$146 = null;
+        return var10000.fromRDD(org.apache.spark.rdd.RDD..MODULE$.rddToPairRDDFunctions(x$143, x$144, x$145, (Ordering)null).join(JavaPairRDD$.MODULE$.toRDD(other), numPartitions), this.kClassTag(), scala.reflect.ClassTag..MODULE$.apply(Tuple2.class));
+    }
+
+
+
+
+
+join in spark application:
+
+ JavaPairDStream<String, String> joinedStream = windowedStream.transformToPair(
+                new Function<JavaPairRDD<String, String>, JavaPairRDD<String, String>>() {
+                    @Override
+                    public JavaPairRDD<String, String> call(JavaPairRDD<String, String> rdd) {
+                        JavaPairRDD<String,String> joined=rdd.join(batchFile)
+                                .mapValues(x->x._1.concat(","+String.valueOf(System.currentTimeMillis()-Long.valueOf(x._1.split(",")[9]))));
+                        return joined;
+                    }
+                }
+        );
+
+
+

@@ -46,7 +46,6 @@ public class SparkWindowFromKafka implements Serializable{
 
 
         final int batchsize = conf.getBatchsize();         //size of elements in each window
-        final int windowTime = conf.getWindowSize();          //measured in seconds
         final int slidingTime = conf.getWindowSlideSize();          //measured in seconds
         final int partitions = 1;
         final int multiplication_factor=1;
@@ -79,7 +78,9 @@ public class SparkWindowFromKafka implements Serializable{
 
         final JavaPairRDD<String, Integer> spamInfoRDD ;
 
-        JavaRDD<String> lines = sc.textFile(conf.getFilepath());
+        //JavaRDD<String> lines = sc.textFile(conf.getFilepath());
+        //create batchfile
+        JavaRDD<String> lines = sc.textFile("src/main/resources/nyc100");
 
         JavaPairRDD<String, String> batchFile = lines.keyBy(new Function<String,String>(){
             @Override
@@ -87,8 +88,10 @@ public class SparkWindowFromKafka implements Serializable{
                 return arg0.split(",")[0];
             }
         });
-        //batchFile.collect().forEach(x->System.out.println(x));
 
+      //  batchFile.collect().forEach(x->System.out.println(x));
+
+        //create kafka source
         final JavaInputDStream<ConsumerRecord<String,String>> messages = KafkaUtils.createDirectStream(
                 jssc,
                 LocationStrategies.PreferBrokers(),
@@ -96,83 +99,34 @@ public class SparkWindowFromKafka implements Serializable{
                 ConsumerStrategies.<String,String>Subscribe(topics,kafkaParams)
         );
 
-       //JavaPairDStream<String, String> stream = messages
-        //       .mapToPair(x->new Tuple2<String, String>(x.value().split(",")[0],x.value()))
-         //      ;
-        //messages.print();
 
-    JavaDStream<String> sss=jssc.textFileStream(conf.getFilepath());
-    JavaPairDStream<String, String> stream = sss
-               .mapToPair(x->new Tuple2<String, String>(x.split(",")[0],x))
-              ;
-
+        //receive data stream
+       JavaPairDStream<String, String> stream = messages
+               .mapToPair(x->new Tuple2<String, String>(x.value().split(",")[0],x.value()))
+               ;
+      // stream.print();
 
 
         JavaPairDStream<String, String> windowedStream = stream.window(Durations.milliseconds(conf.getWindowSize()));
+      //  windowedStream.print();
 
         JavaPairDStream<String, String> joinedStream = windowedStream.transformToPair(
                 new Function<JavaPairRDD<String, String>, JavaPairRDD<String, String>>() {
                     @Override
                     public JavaPairRDD<String, String> call(JavaPairRDD<String, String> rdd) {
-                        //return rdd.join(batchFile);
-                        JavaPairRDD<String,String> joined=rdd.join(batchFile).mapValues(x->x._2);
-                        //return rdd.join(batchFile);
+                        JavaPairRDD<String,String> joined=rdd.join(batchFile)
+                                .mapValues(x->x._1.concat(","+String.valueOf(System.currentTimeMillis()-Long.valueOf(x._1.split(",")[9]))));
                         return joined;
                     }
                 }
         );
 
+        //print results
+
         joinedStream.print();
-        /*
 
 
-
-        Function joinF=new Function<JavaPairRDD<String, Integer>, JavaPairRDD<String, Integer>>() {
-            @Override public JavaPairRDD<String, Integer> call(JavaPairRDD<String, Integer> rdd) throws Exception {
-                return rdd.join(spamInfoRDD); // join data stream with spam information to do data cleaning
-
-            }};
-
-
-
-
-
-
-        JavaPairDStream<String, Integer> cleanedDStream = messages.transform(
-                joinF();
-                );
-
-        JavaDStream<Tuple4<Double, Long, Long,Long>> averagePassengers=messages
-        //message
-
-                .map(x->new Tuple3<Long,Long,Long>(
-                       1L,Long.valueOf(TaxiRideClass.fromString(x.value()).passengerCnt)
-                            ,TaxiRideClass.fromString(x.value()).timestamp))
-
-                .window(new Duration(windowTime*multiplication_factor),new Duration(slidingTime*multiplication_factor))
-               .reduce( (x,y)-> new Tuple3<Long, Long, Long>(x._1()+y._1(),x._2()+y._2(),x._3()<y._3()?y._3():x._3() ) )
-
-               .map(x->new Tuple4<Double, Long, Long,Long>(new Double(x._2()*1000/x._1())/1000.0,x._1(),System.currentTimeMillis()-x._3(),System.currentTimeMillis()));
-
-
-
-
-        String path=conf.getOutputPath()+"spark/";
-        String fileName=windowTime+"/"+slidingTime+"/"+conf.getWorkload()+"/"+"file_"+batchsize;
-        String suffix="";
-
-        if(conf.getWriteOutput()==0){
-            averagePassengers.print();
-        }else if(conf.getWriteOutput()==1){
-            averagePassengers.map(x->new Tuple6<>(",",x._1(),x._2(),x._3(),x._4(),","))
-                    .dstream().saveAsTextFiles(path+fileName,suffix);
-        }else if(conf.getWriteOutput()==2){
-            averagePassengers.print();
-            averagePassengers.map(x->new Tuple6<>(",",x._1(),x._2(),x._3(),x._4(),","))
-                    .dstream().saveAsTextFiles(path+fileName,suffix);
-        }
-
-*/
+        //start spark
         jssc.start();
 
        // jssc.awaitTermination();
