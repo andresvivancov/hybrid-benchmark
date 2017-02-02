@@ -154,7 +154,7 @@ public class SparkWindowFromKafkaCluster implements Serializable{
                 };
 
 
-        //Aggregations
+
 
         JavaDStream<Tuple4<Double, Long, Long,Long>> averagePassengers=messages
                 .map(x->new Tuple3<Long,Long,Long>(1L,Long.valueOf(TaxiRideClass.fromString(x.value()).passengerCnt)

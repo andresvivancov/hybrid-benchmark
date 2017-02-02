@@ -10,14 +10,16 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 //import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
+import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.api.java.function.Function;
 import org.apache.spark.streaming.Duration;
-import org.apache.spark.streaming.api.java.JavaDStream;
-import org.apache.spark.streaming.api.java.JavaInputDStream;
-import org.apache.spark.streaming.api.java.JavaPairDStream;
-import org.apache.spark.streaming.api.java.JavaStreamingContext;
+import org.apache.spark.streaming.Durations;
+import org.apache.spark.streaming.api.java.*;
 
 import org.apache.spark.streaming.kafka010.*;
+import org.json4s.DefaultWriters;
+import scala.Tuple2;
 import scala.Tuple3;
 import scala.Tuple4;
 import scala.Tuple6;
@@ -75,20 +77,70 @@ public class SparkWindowFromKafka implements Serializable{
         kafkaParams.put("key.deserializer", StringDeserializer.class);
         kafkaParams.put("value.deserializer", SparkStringTsDeserializer.class);
 
+        final JavaPairRDD<String, Integer> spamInfoRDD ;
 
+        JavaRDD<String> lines = sc.textFile(conf.getFilepath());
 
+        JavaPairRDD<String, String> batchFile = lines.keyBy(new Function<String,String>(){
+            @Override
+            public String call(String arg0) throws Exception {
+                return arg0.split(",")[0];
+            }
+        });
+        //batchFile.collect().forEach(x->System.out.println(x));
 
         final JavaInputDStream<ConsumerRecord<String,String>> messages = KafkaUtils.createDirectStream(
                 jssc,
                 LocationStrategies.PreferBrokers(),
-               // ConsumerStrategies.Assign(topics,kafkaParams)
+                // ConsumerStrategies.Assign(topics,kafkaParams)
                 ConsumerStrategies.<String,String>Subscribe(topics,kafkaParams)
         );
 
+       //JavaPairDStream<String, String> stream = messages
+        //       .mapToPair(x->new Tuple2<String, String>(x.value().split(",")[0],x.value()))
+         //      ;
+        //messages.print();
+
+    JavaDStream<String> sss=jssc.textFileStream(conf.getFilepath());
+    JavaPairDStream<String, String> stream = sss
+               .mapToPair(x->new Tuple2<String, String>(x.split(",")[0],x))
+              ;
+
+
+
+        JavaPairDStream<String, String> windowedStream = stream.window(Durations.milliseconds(conf.getWindowSize()));
+
+        JavaPairDStream<String, String> joinedStream = windowedStream.transformToPair(
+                new Function<JavaPairRDD<String, String>, JavaPairRDD<String, String>>() {
+                    @Override
+                    public JavaPairRDD<String, String> call(JavaPairRDD<String, String> rdd) {
+                        //return rdd.join(batchFile);
+                        JavaPairRDD<String,String> joined=rdd.join(batchFile).mapValues(x->x._2);
+                        //return rdd.join(batchFile);
+                        return joined;
+                    }
+                }
+        );
+
+        joinedStream.print();
+        /*
+
+
+
+        Function joinF=new Function<JavaPairRDD<String, Integer>, JavaPairRDD<String, Integer>>() {
+            @Override public JavaPairRDD<String, Integer> call(JavaPairRDD<String, Integer> rdd) throws Exception {
+                return rdd.join(spamInfoRDD); // join data stream with spam information to do data cleaning
+
+            }};
 
 
 
 
+
+
+        JavaPairDStream<String, Integer> cleanedDStream = messages.transform(
+                joinF();
+                );
 
         JavaDStream<Tuple4<Double, Long, Long,Long>> averagePassengers=messages
         //message
@@ -120,6 +172,7 @@ public class SparkWindowFromKafka implements Serializable{
                     .dstream().saveAsTextFiles(path+fileName,suffix);
         }
 
+*/
         jssc.start();
 
        // jssc.awaitTermination();

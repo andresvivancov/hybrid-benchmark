@@ -27,23 +27,13 @@ public class Starter {
         }
 
 
-        //start streaming system
-        if (conf.getFlink() == 1) {
-            if(conf.getClusterMode()==1){
-                new FlinkWindowFromKafkaCluster(conf);
-            }else{
-                new FlinkWindowFromKafka(conf);
-            }
 
-
-        }else if(conf.getFlink() == 0){
             if(conf.getClusterMode()==1){
                 new SparkWindowFromKafkaCluster(conf);
             }else{
                 new SparkWindowFromKafka(conf);
             }
 
-        }
     }
 }
 
