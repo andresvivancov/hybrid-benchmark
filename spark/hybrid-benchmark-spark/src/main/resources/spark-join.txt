@@ -62,3 +62,20 @@ join in spark application:
 
 
 
+Spark in generel:
+
+Spark build on Resilient DIstributed Dataset (RDD) that simplifie complex operation.
+They hide the fact of dealing with fragmented data. That fragmentation enables working in parallel.
+
+
+
+join in generell:
+
+To join small with large dataset a broadcast might be helpful.
+Therefore the small dataset will be broadcasted to all nodes and the joins will be done locally
+
+
+Spark joining:
+
+JOIN in Apache spark is expensive as it requires keys from different RDDs to be located on the same partition
+The default process of join in apache Spark is called a shuffled Hash join
