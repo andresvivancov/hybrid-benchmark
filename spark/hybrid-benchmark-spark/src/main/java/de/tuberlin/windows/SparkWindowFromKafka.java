@@ -24,10 +24,14 @@ import scala.Tuple3;
 import scala.Tuple4;
 import scala.Tuple6;
 
+import javax.sound.midi.SysexMessage;
 import java.io.Serializable;
 import java.math.BigInteger;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.security.SecureRandom;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Created by patrick on 15.12.16.
@@ -36,7 +40,7 @@ public class SparkWindowFromKafka implements Serializable{
 
     public SparkWindowFromKafka(Conf conf) throws Exception{
 
-        //spark.streaming.kafka.maxRatePerPartition : Define messages per second to retrive from kafka
+        //setup parameters
         final String LOCAL_ZOOKEEPER_HOST = conf.getLocalZookeeperHost();
         final String APPLICATION_NAME="Spark Window";
         final String LOCAL_KAFKA_BROKER = conf.getLocalKafkaBroker();
@@ -47,24 +51,30 @@ public class SparkWindowFromKafka implements Serializable{
 
         final int batchsize = conf.getBatchsize();         //size of elements in each window
         final int slidingTime = conf.getWindowSlideSize();          //measured in seconds
+        final int windowTime = conf.getWindowSize();          //measured in seconds
         final int partitions = 1;
         final int multiplication_factor=1;
         final String id= new BigInteger(130,new SecureRandom()).toString(32);
+        final String BATCH_PATH=conf.getBatchpath();
 
+        //setup spark
         Map<String,Integer> topicMap = new HashMap<>();
         topicMap.put("winagg",partitions);
+
 
         SparkConf sparkConf = new SparkConf()
                 .setAppName(APPLICATION_NAME)
               // .set("spark.streaming.kafka.maxRatePerPartition",String.valueOf(conf.getWorkload()))
-              //  .set("spark.streaming.backpressure.enabled","true")
+                .set("spark.streaming.backpressure.enabled","true")
                 .set("spark.streaming.backpressure.initialRate","1000")
                 .setMaster(MASTER);
         System.out.println("Starting reading from "+TOPIC_NAME);
-       JavaSparkContext sc = new JavaSparkContext(sparkConf);
+        JavaSparkContext sc = new JavaSparkContext(sparkConf);
         sc.setLogLevel("WARN");
-        JavaStreamingContext jssc = new JavaStreamingContext(sc, new Duration(batchsize*multiplication_factor));
+        JavaStreamingContext jssc = new JavaStreamingContext(sc, new Duration(windowTime)); //batchsize = max = windowtime
 
+
+        //set up kafka connection
         Collection<String> topics=Arrays.asList(TOPIC_NAME,"win","winagg");
         Map<String,Object>kafkaParams=new HashMap<>();
         kafkaParams.put("bootstrap.servers",LOCAL_KAFKA_BROKER);
@@ -76,12 +86,16 @@ public class SparkWindowFromKafka implements Serializable{
         kafkaParams.put("key.deserializer", StringDeserializer.class);
         kafkaParams.put("value.deserializer", SparkStringTsDeserializer.class);
 
-        final JavaPairRDD<String, Integer> spamInfoRDD ;
 
-        //JavaRDD<String> lines = sc.textFile(conf.getFilepath());
+
         //create batchfile
-        JavaRDD<String> lines = sc.textFile("src/main/resources/nyc100");
+        List list= Files.lines(Paths.get(BATCH_PATH)).limit(conf.getBatchfilesize()).collect(Collectors.toList());
+        JavaRDD<String> test=sc.parallelize(list);
 
+        JavaRDD<String> lines = sc.textFile(BATCH_PATH);
+
+        System.out.println("test:  "+test.count());
+        System.out.println("lines:  "+lines.count());
         JavaPairRDD<String, String> batchFile = lines.keyBy(new Function<String,String>(){
             @Override
             public String call(String arg0) throws Exception {
@@ -89,7 +103,6 @@ public class SparkWindowFromKafka implements Serializable{
             }
         });
 
-      //  batchFile.collect().forEach(x->System.out.println(x));
 
         //create kafka source
         final JavaInputDStream<ConsumerRecord<String,String>> messages = KafkaUtils.createDirectStream(
@@ -100,16 +113,16 @@ public class SparkWindowFromKafka implements Serializable{
         );
 
 
-        //receive data stream
+        //receive data stream from kafka
        JavaPairDStream<String, String> stream = messages
                .mapToPair(x->new Tuple2<String, String>(x.value().split(",")[0],x.value()))
                ;
-      // stream.print();
+
+        //create window in datastream
+        JavaPairDStream<String, String> windowedStream = stream.window(Durations.milliseconds(windowTime));
 
 
-        JavaPairDStream<String, String> windowedStream = stream.window(Durations.milliseconds(conf.getWindowSize()));
-      //  windowedStream.print();
-
+        //join the datastream with batchfile
         JavaPairDStream<String, String> joinedStream = windowedStream.transformToPair(
                 new Function<JavaPairRDD<String, String>, JavaPairRDD<String, String>>() {
                     @Override
@@ -121,10 +134,9 @@ public class SparkWindowFromKafka implements Serializable{
                 }
         );
 
+
         //print results
-
         joinedStream.print();
-
 
         //start spark
         jssc.start();

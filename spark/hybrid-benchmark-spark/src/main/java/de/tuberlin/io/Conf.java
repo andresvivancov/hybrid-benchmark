@@ -36,6 +36,8 @@ public class Conf {
  String confPath="src/main/resources/config.ini";
  String outputPath;
  int clusterMode;
+ String batchpath;
+ int batchfilesize;
     public int getWindowType() {
         return windowType;
     }
@@ -96,6 +98,10 @@ public class Conf {
 
     public int getClusterMode() {        return clusterMode;    }
 
+    public String getBatchpath() {        return batchpath;    }
+
+    public int getBatchfilesize() {        return batchfilesize;    }
+
     public Conf(){
 
     try {
@@ -125,7 +131,9 @@ public class Conf {
         timeout =ini.get("system", "timeout", int.class);
         writeOutput =ini.get("system", "write_output", int.class);
         clusterMode =ini.get("system", "cluster_mode", int.class);
+        batchfilesize =ini.get("kafka", "batchfilesize", int.class);
         outputPath =ini.get("system", "output_path");
+        batchpath =ini.get("kafka", "batchpath");
     }catch (IOException e){
         e.printStackTrace();
     }
@@ -162,6 +170,8 @@ public class Conf {
             writeOutput =ini.get("system", "write_output", int.class);
             outputPath =ini.get("system", "output_path");
             clusterMode =ini.get("system", "cluster_mode", int.class);
+            batchfilesize =ini.get("kafka", "batchfilesize", int.class);
+            batchpath =ini.get("kafka", "batchpath");
         }catch (IOException e){
             e.printStackTrace();
         }
