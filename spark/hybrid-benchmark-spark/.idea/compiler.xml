@@ -7,11 +7,13 @@
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
         <module name="bdapro-winagg-project" />
+        <module name="hybrid-benchmark-project" />
         <module name="hybrid-benchmark-spark" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
       <module name="bdapro-winagg-project" target="1.8" />
+      <module name="hybrid-benchmark-project" target="1.8" />
       <module name="hybrid-benchmark-spark" target="1.8" />
     </bytecodeTargetLevel>
   </component>

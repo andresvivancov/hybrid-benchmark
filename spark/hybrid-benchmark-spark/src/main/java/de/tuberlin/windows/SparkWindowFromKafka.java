@@ -32,6 +32,7 @@ import java.nio.file.Paths;
 import java.security.SecureRandom;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Created by patrick on 15.12.16.
@@ -88,14 +89,25 @@ public class SparkWindowFromKafka implements Serializable{
 
 
 
-        //create batchfile
-        List list= Files.lines(Paths.get(BATCH_PATH)).limit(conf.getBatchfilesize()).collect(Collectors.toList());
-        JavaRDD<String> test=sc.parallelize(list);
 
-        JavaRDD<String> lines = sc.textFile(BATCH_PATH);
+        //make list with elements from textfile with size specified on config file
+        Stream<String> fileinputstream=Files.lines(Paths.get(BATCH_PATH));
+        Long filesize=fileinputstream.count();
+        Long numberLoops = conf.getBatchfilesize()/filesize;
+        Long offset=conf.getBatchfilesize()%filesize;
+        List list= Files.lines(Paths.get(BATCH_PATH)).limit(offset).collect(Collectors.toList());
+        for (int i = 0; i < numberLoops; i++) {
+            list.addAll( Files.lines(Paths.get(BATCH_PATH)).collect(Collectors.toList()));
+        }
+        fileinputstream.close();
 
-        System.out.println("test:  "+test.count());
-        System.out.println("lines:  "+lines.count());
+        //create batchfile with the created list
+        JavaRDD<String> lines=sc.parallelize(list);
+
+       // JavaRDD<String> lines = sc.textFile(BATCH_PATH);
+
+
+        //create PairRdd out of the input Rdd for using keyed aggregation(join)
         JavaPairRDD<String, String> batchFile = lines.keyBy(new Function<String,String>(){
             @Override
             public String call(String arg0) throws Exception {
