@@ -150,6 +150,25 @@ public class SparkWindowFromKafka implements Serializable{
         //print results
         joinedStream.print();
 
+
+        //printing output
+        String path=conf.getOutputPath()+"spark/";
+        String fileName=windowTime+"/"+conf.getBatchfilesize()+"/"+conf.getWorkload()+"/"+"file_"+batchsize;
+        String suffix="";
+        if(conf.getWriteOutput()==0){
+            // print result on stdout
+            joinedStream.print();
+        }else if(conf.getWriteOutput()==1){
+            joinedStream.map(x->new Tuple4<>(",",x._1(),x._2(),","))
+                    .dstream().saveAsTextFiles(path+fileName,suffix);
+        }else if(conf.getWriteOutput()==2){
+            joinedStream.print();
+            joinedStream.map(x->new Tuple4<>(",",x._1(),x._2(),","))
+                    .dstream().saveAsTextFiles(path+fileName,suffix);
+        }
+
+
+
         //start spark
         jssc.start();
 

@@ -3,14 +3,14 @@
 
 for dir in $(find results/spark/ -maxdepth 3 -mindepth 3 -type d);do
 	#echo $dir
-	if [ -f /$dir/sparkmerge.sh ];then
-		rm -f $dir/sparkmerge.sh
+	if [ -f /$dir/newsparkmerge.sh ];then
+		rm -f $dir/newsparkmerge.sh
 	fi
-	cp sparkmerge.sh $dir/sparkmerge.sh
+	cp newsparkmerge.sh $dir/newsparkmerge.sh
 	cd $dir
-	./sparkmerge.sh
+	./newsparkmerge.sh
 	cd ../../../../../
-	rm $dir/sparkmerge.sh
+	rm $dir/newsparkmerge.sh
 done
 
 
