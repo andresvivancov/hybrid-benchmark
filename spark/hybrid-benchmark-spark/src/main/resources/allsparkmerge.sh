@@ -8,7 +8,7 @@ for dir in $(find results/spark/ -maxdepth 3 -mindepth 3 -type d);do
 	fi
 	cp newsparkmerge.sh $dir/newsparkmerge.sh
 	cd $dir
-	./newsparkmerge.sh
+	./newsparkmerge.sh $dir
 	cd ../../../../../
 	rm $dir/newsparkmerge.sh
 done

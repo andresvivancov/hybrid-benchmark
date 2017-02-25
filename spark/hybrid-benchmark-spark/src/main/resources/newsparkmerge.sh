@@ -1,42 +1,52 @@
 #!/bin/bash
 #turns all file* folders of spark result into one result csv 
+path=$1
+win=$(echo $path | cut -f3 -d/)
+batch=$(echo $path | cut -f4 -d/)
+work=$(echo $path | cut -f5 -d/)
 
-num=0
 numparts=0
 #name=da
 bool=true
+num=0
+sumlat=0
+
 for i in $(ls); do
 	if [[ $i =~ ^fil.* ]];
 	then
-		bool=false
-		txt=`cat $i/part-00000`
-		txt2=`cat $i/part-00001`
-		txt3=`cat $i/part-00002`
-		if [[ -z $txt ]];
-		then
-		    tdad=3
-        else
-
-            files[$num]=`cat $i/part-00000`
-		    num=$((num+1))
-		    numparts=$((numparts+1))
+	    if  $bool ;
+	    then
+	        bool=false
+	    else
+            #bool=false
+            txt=`cat $i/part-00000`
+            txt2=`cat $i/part-00001`
+            txt3=`cat $i/part-00002`
+            if [[ -z $txt ]];
+		    then
+		        da=3
+		    else
+                numparts=$((numparts+1))
+            fi
             declare name=$i
-        fi
-        if [[ -z $txt2 ]];
-		then
-		    tdad=3
-        else
-            files[$num]=`cat $i/part-00001`
-		    num=$((num+1))
-            declare name=$i
-        fi
-        if [[ -z $txt3 ]];
-		then
-		    tdad=3
-        else
-            files[$num]=`cat $i/part-00002`
-		    num=$((num+1))
-            declare name=$i
+            while read -r line
+            do
+                 IFS=$',' lines=(${line})
+                 num=$((num+1))
+                 sumlat=$((sumlat+lines[13]))
+            done <<< "$txt"
+            while read -r line
+            do
+                 IFS=$',' lines=(${line})
+                 num=$((num+1))
+                 sumlat=$((sumlat+lines[13]))
+            done <<< "$txt2"
+            while read -r line
+            do
+                 IFS=$',' lines=(${line})
+                 num=$((num+1))
+                 sumlat=$((sumlat+lines[13]))
+            done <<< "$txt3"
         fi
 		#echo $i
 #name=${name
@@ -49,14 +59,20 @@ then
 	exit
 fi
 
+lat=$((sumlat/num))
+th=$((num/numparts/2))
+#IFS=$'+' th=(${i})
+tuple="spark,$win,$batch,$work,$lat,$th,$num"
+echo ${tuple}
+#printf "%s\n" "${tuple}" > "new-${th##*_}".csv
 
 
-pattern='(,,'
-numlines=$(grep -o '(,,' <<< "${files[@]}" | wc -l)
-th=$((numlines/numparts/2))
-filename=$name'+'$th'+'
+#pattern='(,,'
+#numlines=$(grep -o '(,,' <<< "${files[@]}" | wc -l)
 
-printf "%s\n" "${files[@]}" > "${filename##*_}".csv
+#filename=$name'+'$th'+'
+
+printf "%s\n" "${tuple}" > "new-${name##*_}".csv
 
 find -type d -name "fil*" -exec rm -rf {} +;
 
