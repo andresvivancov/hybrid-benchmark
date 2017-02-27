@@ -7,16 +7,16 @@ work=$(echo $path | cut -f5 -d/)
 
 numparts=0
 #name=da
-bool=true
+bool=0
 num=0
 sumlat=0
 
 for i in $(ls); do
 	if [[ $i =~ ^fil.* ]];
 	then
-	    if  $bool ;
+	    if  [ $bool -le 30 ] ;
 	    then
-	        bool=false
+	        bool=$((bool+1))
 	    else
             #bool=false
             txt=`cat $i/part-00000`
@@ -53,7 +53,7 @@ for i in $(ls); do
 		
 	fi
 done
-if $bool;
+if [ $bool -eq 0 ];
 then
 #	echo no results found [directories starting with file]
 	exit
