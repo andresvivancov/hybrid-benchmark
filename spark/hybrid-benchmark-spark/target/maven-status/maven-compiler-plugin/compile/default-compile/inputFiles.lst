@@ -1,0 +1,8 @@
+/home/patrick/Dokumente/hybrid-benchmark/spark/hybrid-benchmark-spark/src/main/java/de/tuberlin/windows/SparkWindowFromKafka.java
+/home/patrick/Dokumente/hybrid-benchmark/spark/hybrid-benchmark-spark/src/main/java/de/tuberlin/io/TaxiRideClass.java
+/home/patrick/Dokumente/hybrid-benchmark/spark/hybrid-benchmark-spark/src/main/java/de/tuberlin/serialization/SparkStringTsDeserializer.java
+/home/patrick/Dokumente/hybrid-benchmark/spark/hybrid-benchmark-spark/src/main/java/de/tuberlin/io/Conf.java
+/home/patrick/Dokumente/hybrid-benchmark/spark/hybrid-benchmark-spark/src/main/java/de/tuberlin/windows/SparkWindowFromKafkaCluster.java
+/home/patrick/Dokumente/hybrid-benchmark/spark/hybrid-benchmark-spark/src/main/java/de/tuberlin/main/Starter.java
+/home/patrick/Dokumente/hybrid-benchmark/spark/hybrid-benchmark-spark/src/main/java/de/tuberlin/kafka/KafkaProducer.java
+/home/patrick/Dokumente/hybrid-benchmark/spark/hybrid-benchmark-spark/src/main/java/de/tuberlin/serialization/SparkStringTsDecoder.java

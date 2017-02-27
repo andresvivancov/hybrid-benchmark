@@ -3,7 +3,6 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/hybrid-benchmark-project.iml" filepath="$PROJECT_DIR$/hybrid-benchmark-project.iml" />
-      <module fileurl="file://$PROJECT_DIR$/hybrid-benchmark-spark.iml" filepath="$PROJECT_DIR$/hybrid-benchmark-spark.iml" />
     </modules>
   </component>
 </project>
