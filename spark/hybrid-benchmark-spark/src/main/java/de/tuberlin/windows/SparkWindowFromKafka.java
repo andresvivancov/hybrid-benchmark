@@ -148,7 +148,7 @@ public class SparkWindowFromKafka implements Serializable{
 
 
         //print results
-        joinedStream.print();
+        //joinedStream.print();
 
 
         //printing output
