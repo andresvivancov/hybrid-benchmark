@@ -28,8 +28,10 @@ public class Starter {
 
 
 
-            if(conf.getClusterMode()==1){
+            if(conf.getClusterMode()==1) {
                 new SparkWindowFromKafkaCluster(conf);
+            }else if(conf.getClusterMode()==2){
+                new SparkWindowFromKafkaBroadcast(conf);
             }else{
                 new SparkWindowFromKafka(conf);
             }

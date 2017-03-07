@@ -1,39 +1,41 @@
 package de.tuberlin.windows;
 
 import de.tuberlin.io.Conf;
-import de.tuberlin.io.TaxiRideClass;
-import de.tuberlin.serialization.SparkStringTsDecoder;
 import de.tuberlin.serialization.SparkStringTsDeserializer;
-import kafka.serializer.StringDecoder;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
+import de.tuberlin.io.TaxiRideClass;
 import org.apache.kafka.common.serialization.StringDeserializer;
+
+//import org.apache.flink.api.java.tuple.Tuple3;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+//import org.apache.kafka.common.serialization.StringDeserializer;
+import org.apache.spark.Partitioner;
 import org.apache.spark.SparkConf;
+import org.apache.spark.api.java.JavaPairRDD;
+import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.Function;
-import org.apache.spark.api.java.function.Function2;
-import org.apache.spark.api.java.function.PairFunction;
-import org.apache.spark.api.java.function.ReduceFunction;
+import org.apache.spark.broadcast.Broadcast;
+import org.apache.spark.storage.StorageLevel;
 import org.apache.spark.streaming.Duration;
 import org.apache.spark.streaming.Durations;
-import org.apache.spark.streaming.api.java.JavaDStream;
-import org.apache.spark.streaming.api.java.JavaInputDStream;
-import org.apache.spark.streaming.api.java.JavaPairInputDStream;
-import org.apache.spark.streaming.api.java.JavaStreamingContext;
-import org.apache.spark.streaming.kafka.KafkaUtils;
-import org.apache.spark.streaming.kafka010.ConsumerStrategies;
-import org.apache.spark.streaming.kafka010.LocationStrategies;
+import org.apache.spark.streaming.api.java.*;
+
+import org.apache.spark.streaming.kafka010.*;
+import org.json4s.DefaultWriters;
 import scala.Tuple2;
 import scala.Tuple3;
 import scala.Tuple4;
 import scala.Tuple6;
 
+import javax.sound.midi.SysexMessage;
 import java.io.Serializable;
 import java.math.BigInteger;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.security.SecureRandom;
 import java.util.*;
-
-//import org.apache.flink.api.java.tuple.Tuple3;
-//import org.apache.kafka.common.serialization.StringDeserializer;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Created by patrick on 15.12.16.
@@ -42,75 +44,43 @@ public class SparkWindowFromKafkaCluster implements Serializable{
 
     public SparkWindowFromKafkaCluster(Conf conf) throws Exception{
 
-        //spark.streaming.kafka.maxRatePerPartition : Define messages per second to retrive from kafka
+        //setup parameters
         final String LOCAL_ZOOKEEPER_HOST = conf.getLocalZookeeperHost();
         final String APPLICATION_NAME="Spark Window";
         final String LOCAL_KAFKA_BROKER = conf.getLocalKafkaBroker();
         final String GROUP_ID = conf.getGroupId();
         final String TOPIC_NAME="spark-"+conf.getTopicName();
         final String MASTER=conf.getMaster();
-        System.out.println("Starting reading from "+TOPIC_NAME);
+
 
         final int batchsize = conf.getBatchsize();         //size of elements in each window
-        final int windowTime = conf.getWindowSize();          //measured in seconds
         final int slidingTime = conf.getWindowSlideSize();          //measured in seconds
+        final int windowTime = conf.getWindowSize();          //measured in seconds
         final int partitions = 1;
         final int multiplication_factor=1;
         final String id= new BigInteger(130,new SecureRandom()).toString(32);
+        final String BATCH_PATH=conf.getBatchpath();
 
+        //setup spark
         Map<String,Integer> topicMap = new HashMap<>();
         topicMap.put("winagg",partitions);
+
 
         SparkConf sparkConf = new SparkConf()
                 .setAppName(APPLICATION_NAME)
                 // .set("spark.streaming.kafka.maxRatePerPartition",String.valueOf(conf.getWorkload()))
                 .set("spark.streaming.backpressure.enabled","true")
-                //.set("spark.streaming.backpressure.initialRate","1000")
+                .set("spark.streaming.backpressure.initialRate","1000")
                 .setMaster(MASTER);
-
-
+        System.out.println("Starting reading from "+TOPIC_NAME);
         JavaSparkContext sc = new JavaSparkContext(sparkConf);
         sc.setLogLevel("WARN");
-        JavaStreamingContext jssc = new JavaStreamingContext(sc, new Duration(batchsize*multiplication_factor));
-/*
-        Set<String> topics = Collections.singleton(TOPIC_NAME);
-        // Collection<String> topics=Arrays.asList(TOPIC_NAME,"win","winagg");
-        //Collection<TopicPartition> topics=Arrays.asList(new TopicPartition[]{new TopicPartition(TOPIC_NAME,1)});
-
-        // Map<String, String>kafkaParams=new HashMap<>();
-        Map<String,String>kafkaParams=new HashMap<>();
-        // kafkaParams.put("zookeeper.connect", LOCAL_ZOOKEEPER_HOST);
-        //kafkaParams.put("metadata.broker.list",LOCAL_KAFKA_BROKER);
-        kafkaParams.put("bootstrap.servers",LOCAL_KAFKA_BROKER);
-        kafkaParams.put("auto.offset.reset","largest");
-        kafkaParams.put("enable.auto.commit","true");
-        //  kafkaParams.put("enable.auto.commit","true");
-        if(conf.getNewOffset()==1){ kafkaParams.put("group.id", id);}else{
-            kafkaParams.put("group.id", conf.getGroupId());
-        }
-        //   kafkaParams.put("key.deserializer", StringDeserializer.class);
-        //   kafkaParams.put("value.deserializer", SparkStringTsDeserializer.class);
+        JavaStreamingContext jssc = new JavaStreamingContext(sc, new Duration(windowTime)); //batchsize = max = windowtime
 
 
-
-        final JavaPairInputDStream<String,String> messages = KafkaUtils.createDirectStream(
-                jssc,
-                String.class,
-                String.class,
-                StringDecoder.class,
-                SparkStringTsDecoder.class,
-                kafkaParams,
-                topics
-        );
-*/
-
+        //set up kafka connection
         Collection<String> topics=Arrays.asList(TOPIC_NAME,"win","winagg");
-        //Collection<TopicPartition> topics=Arrays.asList(new TopicPartition[]{new TopicPartition(TOPIC_NAME,1)});
-
-        // Map<String, String>kafkaParams=new HashMap<>();
         Map<String,Object>kafkaParams=new HashMap<>();
-        // kafkaParams.put("zookeeper.connect", LOCAL_ZOOKEEPER_HOST);
-        //kafkaParams.put("metadata.broker.list",LOCAL_KAFKA_BROKER);
         kafkaParams.put("bootstrap.servers",LOCAL_KAFKA_BROKER);
         kafkaParams.put("auto.offset.reset","latest");
         kafkaParams.put("enable.auto.commit","true");
@@ -120,7 +90,62 @@ public class SparkWindowFromKafkaCluster implements Serializable{
         kafkaParams.put("key.deserializer", StringDeserializer.class);
         kafkaParams.put("value.deserializer", SparkStringTsDeserializer.class);
 
-        final JavaInputDStream<ConsumerRecord<String,String>> messages = org.apache.spark.streaming.kafka010.KafkaUtils.createDirectStream(
+
+
+
+        //make list with elements from textfile with size specified on config file
+        //Stream<String> fileinputstream=Files.lines(Paths.get(BATCH_PATH));
+
+        /*Long filesize=fileinputstream.count();
+        Long numberLoops = conf.getBatchfilesize()/filesize;
+        Long offset=conf.getBatchfilesize()%filesize;
+        List list= Files.lines(Paths.get(BATCH_PATH)).limit(offset).collect(Collectors.toList());
+        for (int i = 0; i < numberLoops; i++) {
+            list.addAll( Files.lines(Paths.get(BATCH_PATH)).collect(Collectors.toList()));
+        }
+        fileinputstream.close();
+
+        //create batchfile with the created list
+        JavaRDD<String> lines=sc.parallelize(list);
+        lines.cache();
+        // JavaRDD<String> lines = sc.textFile(BATCH_PATH);
+
+
+        //create PairRdd out of the input Rdd for using keyed aggregation(join)
+        JavaPairRDD<String, String> batchFile = lines.keyBy(new Function<String,String>(){
+            @Override
+            public String call(String arg0) throws Exception {
+                return arg0.split(",")[0];
+            }
+        });
+
+        //cache the batchfile so it does not read every time
+        batchFile.cache();
+        // batchFile.persist(StorageLevel.MEMORY_AND_DISK());
+        //  Broadcast<JavaPairRDD<String,String>> broadBatch=sc.broadcast(batchFile);
+
+    */
+
+
+       // JavaPairRDD<String, String> batchFile = sc.textFile(BATCH_PATH);
+        JavaPairRDD<String, String> batchFile = sc.textFile(BATCH_PATH).keyBy(new Function<String,String>(){
+            @Override
+            public String call(String arg0) throws Exception {
+                return arg0.split(",")[0];
+            }
+        });
+       // System.out.println("dddddd  "+batchFile.count());
+        //batchFile.cache();
+        JavaPairRDD<String, String> cachedBatch= batchFile.cache();
+        //batchFile.repartition(8);
+      //  System.out.println("ddd :"+batchFile.getNumPartitions());
+        //Broadcast<JavaPairRDD<String,String>> broadBatch=sc.broadcast(batchFile);
+      //  Broadcast<JavaPairRDD<String,String>> broadBatch=sc.broadcast(cachedBatch);
+
+
+
+        //create kafka source
+        final JavaInputDStream<ConsumerRecord<String,String>> messages = KafkaUtils.createDirectStream(
                 jssc,
                 LocationStrategies.PreferBrokers(),
                 // ConsumerStrategies.Assign(topics,kafkaParams)
@@ -128,63 +153,58 @@ public class SparkWindowFromKafkaCluster implements Serializable{
         );
 
 
-        //Functions
-        Function2<Tuple3<Long,Long,Long>,Tuple3<Long,Long,Long>,Tuple3<Long,Long,Long>> reduceF=
-                new Function2<Tuple3<Long,Long,Long>, Tuple3<Long,Long,Long>, Tuple3<Long,Long,Long>>(){
+        //receive data stream from kafka
+        JavaPairDStream<String, String> stream = messages
+                .mapToPair(x->new Tuple2<String, String>(x.value().split(",")[0],x.value()))
+                ;
+
+        //create window in datastream
+        JavaPairDStream<String, String> windowedStream = stream.window(Durations.milliseconds(windowTime));
+
+
+        //join the datastream with batchfile
+
+        JavaPairDStream<String, String> joinedStream = windowedStream.transformToPair(
+                new Function<JavaPairRDD<String, String>, JavaPairRDD<String, String>>() {
                     @Override
-                    public Tuple3<Long, Long, Long> call(Tuple3<Long, Long, Long> x, Tuple3<Long, Long, Long> y) throws Exception {
-                        return new Tuple3<>(x._1()+y._1(),x._2()+y._2(),x._3()<y._3()?y._3():x._3() ) ;
+                    public JavaPairRDD<String, String> call(JavaPairRDD<String, String> rdd) {
+                       // JavaPairRDD<String,String> joined=batchFile.join(rdd)
+                       // JavaPairRDD<String,String> joined=broadBatch.value().join(rdd,30)
+                        JavaPairRDD<String,String> joined=rdd.join(cachedBatch,conf.getCountSize())
+                        //JavaPairRDD<String,String> joined=rdd.join(batchFile)
+                       // JavaPairRDD<String,String> joined=rdd.join(broadBatch.value(),conf.getCountSize())
+
+                                .mapValues(x->x._1.concat(","+String.valueOf(System.currentTimeMillis()-Long.valueOf(x._1.split(",")[9]))));
+                        return joined;
+                        //return rdd;
                     }
-                };
-
-        Function<Tuple2<Integer,Tuple3<Long,Long,Long>>,Tuple4<Double,Long,Long,Long>> mapF=new Function<Tuple2<Integer,Tuple3<Long, Long, Long>>, Tuple4<Double, Long, Long, Long>>() {
-            @Override
-            public Tuple4<Double, Long, Long, Long> call(Tuple2<Integer,Tuple3<Long, Long, Long>> x) throws Exception {
-                return new Tuple4<>(new Double(x._2()._2()*1000/x._2()._1())/1000.0,x._2()._1(),System.currentTimeMillis()-x._2()._3(),System.currentTimeMillis());
-            }
-        };
-
-        PairFunction<Tuple3<Long,Long,Long>, Integer, Tuple3<Long, Long, Long>> pairF=
-                new PairFunction<Tuple3<Long,Long,Long>, Integer, Tuple3<Long, Long, Long>>() {
-                    @Override
-                    public Tuple2<Integer, Tuple3<Long, Long, Long>> call(Tuple3<Long, Long, Long> t) throws Exception {
-                        int ran=new Random().nextInt(9)+1;
-                        return new Tuple2<Integer, Tuple3<Long, Long, Long>>(ran,t);
-                    }
-                };
+                }
+        );
 
 
-
-
-        JavaDStream<Tuple4<Double, Long, Long,Long>> averagePassengers=messages
-                .map(x->new Tuple3<Long,Long,Long>(1L,Long.valueOf(TaxiRideClass.fromString(x.value()).passengerCnt)
-                        ,TaxiRideClass.fromString(x.value()).timestamp))
-
-                .mapToPair(pairF)
-
-                .reduceByKeyAndWindow(reduceF,Durations.milliseconds(windowTime),Durations.milliseconds(slidingTime))
-
-                .map(mapF);
+        //print results
+        //joinedStream.print();
 
 
         //printing output
         String path=conf.getOutputPath()+"spark/";
-        String fileName=windowTime+"/"+slidingTime+"/"+conf.getWorkload()+"/"+"file_"+batchsize;
+        String fileName=windowTime+"/"+conf.getBatchfilesize()+"/"+conf.getWorkload()+"/"+"file_"+batchsize;
         String suffix="";
         if(conf.getWriteOutput()==0){
             // print result on stdout
-            averagePassengers.print();
+            joinedStream.print();
         }else if(conf.getWriteOutput()==1){
-            averagePassengers.map(x->new Tuple6<>(",",x._1(),x._2(),x._3(),x._4(),","))
+            joinedStream.map(x->new Tuple4<>(",",x._1(),x._2(),","))
                     .dstream().saveAsTextFiles(path+fileName,suffix);
         }else if(conf.getWriteOutput()==2){
-            averagePassengers.print();
-            averagePassengers.map(x->new Tuple6<>(",",x._1(),x._2(),x._3(),x._4(),","))
+            joinedStream.print();
+            joinedStream.map(x->new Tuple4<>(",",x._1(),x._2(),","))
                     .dstream().saveAsTextFiles(path+fileName,suffix);
         }
 
 
-        //starting environment
+
+        //start spark
         jssc.start();
 
         // jssc.awaitTermination();

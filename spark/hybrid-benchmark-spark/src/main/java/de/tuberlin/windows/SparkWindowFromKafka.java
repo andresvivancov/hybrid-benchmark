@@ -13,6 +13,8 @@ import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.Function;
+import org.apache.spark.broadcast.Broadcast;
+import org.apache.spark.storage.StorageLevel;
 import org.apache.spark.streaming.Duration;
 import org.apache.spark.streaming.Durations;
 import org.apache.spark.streaming.api.java.*;
@@ -92,6 +94,7 @@ public class SparkWindowFromKafka implements Serializable{
 
         //make list with elements from textfile with size specified on config file
         Stream<String> fileinputstream=Files.lines(Paths.get(BATCH_PATH));
+
         Long filesize=fileinputstream.count();
         Long numberLoops = conf.getBatchfilesize()/filesize;
         Long offset=conf.getBatchfilesize()%filesize;
@@ -104,7 +107,7 @@ public class SparkWindowFromKafka implements Serializable{
         //create batchfile with the created list
         JavaRDD<String> lines=sc.parallelize(list);
 
-       // JavaRDD<String> lines = sc.textFile(BATCH_PATH);
+               // JavaRDD<String> lines = sc.textFile(BATCH_PATH);
 
 
         //create PairRdd out of the input Rdd for using keyed aggregation(join)
@@ -114,6 +117,11 @@ public class SparkWindowFromKafka implements Serializable{
                 return arg0.split(",")[0];
             }
         });
+
+        //cache the batchfile so it does not read every time
+
+       // batchFile.persist(StorageLevel.MEMORY_AND_DISK());
+      //  Broadcast<JavaPairRDD<String,String>> broadBatch=sc.broadcast(batchFile);
 
 
         //create kafka source
@@ -140,6 +148,7 @@ public class SparkWindowFromKafka implements Serializable{
                     @Override
                     public JavaPairRDD<String, String> call(JavaPairRDD<String, String> rdd) {
                         JavaPairRDD<String,String> joined=rdd.join(batchFile)
+                        //JavaPairRDD<String,String> joined=rdd.join(broadBatch.value())
                                 .mapValues(x->x._1.concat(","+String.valueOf(System.currentTimeMillis()-Long.valueOf(x._1.split(",")[9]))));
                         return joined;
                     }
