@@ -1,8 +1,10 @@
 de/tuberlin/serialization/SparkStringTsDeserializer.class
 de/tuberlin/serialization/SparkStringTsDecoder.class
 de/tuberlin/windows/SparkWindowFromKafkaCluster$1.class
+de/tuberlin/windows/SparkWindowFromKafkaBroadcast.class
+de/tuberlin/windows/SparkWindowFromKafkaBroadcast$1.class
 de/tuberlin/windows/SparkWindowFromKafka.class
-de/tuberlin/windows/SparkWindowFromKafkaCluster$3.class
+de/tuberlin/windows/SparkWindowFromKafkaBroadcast$2.class
 de/tuberlin/io/TaxiRideClass.class
 de/tuberlin/windows/SparkWindowFromKafkaCluster$2.class
 de/tuberlin/io/Conf.class
