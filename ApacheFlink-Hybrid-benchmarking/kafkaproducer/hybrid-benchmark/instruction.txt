@@ -1,0 +1,7 @@
+to run jar:
+
+java -jar kafkaproducer-1.0.jar [config file] [producer file] [workload]
+
+example:
+
+java -jar kafkaproducer-1.0.jar config.ini nyc200000 5000
